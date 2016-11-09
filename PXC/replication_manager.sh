@@ -84,7 +84,7 @@ try_masters() {
         sleep 10  # Give some time for replication to settle
         get_slave_status
         stateOk=$(echo $Slave_IO_State | grep -ci connect) # anything with connect in Slave_IO_State is bad
-        if [ "$Slave_IO_Running" == "Yes" && "$Slave_SQL_Running" == "Yes" && "$stateOk" -eq 0 ]; then
+        if [[ $Slave_IO_Running == "Yes" && $Slave_SQL_Running == "Yes" && $stateOk -eq 0 ]]; then
             masterOk=1
             break
         fi

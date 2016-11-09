@@ -62,7 +62,7 @@ get_status_and_variables() {
 
 # retrieve the slave status and set variables
 get_slave_status() {
-    eval `mysql --connect_timeout=10 -B -e 'show slave status\G' 2> /tmp/mysql_error | grep -v '\*\*\*\*' | sed -e 's/^\s*//g' -e 's/: /=/g' -e 's/\(.*\)=\(.*\)$/\1='"'"'\2'"'"'/g'`
+    eval `mysql --connect_timeout=10 -B -e 'show slave status\G' 2> /tmp/mysql_error | grep -v Last_IO | grep -v '\*\*\*\*' | sed -e 's/^\s*//g' -e 's/: /=/g' -e 's/\(.*\)=\(.*\)$/\1='"'"'\2'"'"'/g'`
 
     if [ "$(grep -c ERROR /tmp/mysql_error)" -gt 0 ]; then
         cat /tmp/mysql_error

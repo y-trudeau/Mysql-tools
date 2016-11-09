@@ -147,7 +147,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
         elif [ "$myState" == "Failed" ]; then
             # Clear the failed state after twice the normal timeout
             mysql -e "update percona.replication set isSlave='No', localIndex=$wsrep_local_index, lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name' and unix_timestamp(lastUpdate) < unix_timestamp() - 2*$FAILED_REPLICATION_TIMEOUT"
-        if
+        fi
 
         if [ "a$slaveDefined" == "a" ]; then
             # no slave are defined in the cluster
@@ -182,7 +182,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
             fi
         elif [ "$myState" == "Yes" ]; then
             # myState is defined
-            if [ "$Slave_IO_Running" == "Yes" && "$Slave_SQL_Running" == "Yes" ]; then
+            if [[ $Slave_IO_Running == "Yes" && $Slave_SQL_Running == "Yes" ]]; then
                 #replication is going ok
                 mysql -e "update percona.replication set isSlave='Yes', localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"    
         
@@ -191,7 +191,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                 if [ "$Slave_SQL_Running" == "No" ]; then
                     # That's bad, replication failed, let's bailout
                     mysql -e "stop slave; reset slave all; update percona.replication set isSlave='Failed', localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'" 
-                elif [ "$Slave_IO_Running" != "Yes" && "$Slave_SQL_Running" == "Yes" ]; then
+                elif [[ $Slave_IO_Running != "Yes" && $Slave_SQL_Running == "Yes" ]]; then
                     # Looks like we cannot reach the master, let's try to reconnect
                     
                     masterOk=$(try_masters)

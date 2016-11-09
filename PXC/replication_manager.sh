@@ -34,6 +34,8 @@
 # the script run.  I needs SELECT, INSERT and UPDATE on percona.repliction 
 # and SUPER on *.*
 #
+# Finally, the script requires GTID replication to be enabled.
+#
 DEBUG_LOG="/tmp/replication_manager.log"
 if [ "${DEBUG_LOG}" -a -w "${DEBUG_LOG}" -a ! -L "${DEBUG_LOG}" ]; then
   exec 9>>"$DEBUG_LOG"
@@ -128,8 +130,8 @@ setup_replication(){
 get_status_and_variables
 get_slave_status
 
-if [ "$wsrep_cluster_status" == 'Primary' && ( $wsrep_local_state -eq 4 \
-    || $wsrep_local_state -eq 2 ) ]; then
+if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
+    || $wsrep_local_state -eq 2 ) ]]; then
     # cluster is sane for this node
 
     myState=`mysql -BN -e "select isSlave from percona.replication where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name';"`

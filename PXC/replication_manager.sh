@@ -4,7 +4,7 @@
 #
 # Description:  Manages master-master replication between 2 PXC clusters.
 #
-# Authors:  Yves Trudeau:               DB2 Script
+# Authors:  Yves Trudeau, Percona
 #
 # License:  GNU General Public License (GPL)
 #

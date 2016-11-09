@@ -45,7 +45,7 @@ if [ "${DEBUG_LOG}" -a -w "${DEBUG_LOG}" -a ! -L "${DEBUG_LOG}" ]; then
 fi
 
 #Global variables
-FAILED_REPLICATION_TIMEOUT=180  # 3 times the cron interval
+FAILED_REPLICATION_TIMEOUT=179  # 3 times the cron interval minus 1s
 MASTERS_LIST="172.29.110.132 172.29.110.132 172.29.110.132"
 #MASTERS_LIST="172.29.78.132 172.29.78.132 172.29.78.132"
 REPLICATION_CREDENTIALS="master_user='repl', master_password='6xF42CdmgWn', MASTER_AUTO_POSITION = 1"
@@ -73,7 +73,7 @@ get_slave_status() {
 
 find_best_slave_candidate() {
     # we want the proposed if any, if not the lowest localIndex that has a valid lastHeartbeat
-    mysql -BN -e "select host from percona.replication select host from percona.replication where cluster='$wsrep_cluster_name' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT order by localIndex limit 1;"
+    mysql -BN -e "select host from percona.replication where cluster='$wsrep_cluster_name' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT order by localIndex limit 1;"
 }
 
 try_masters() {
@@ -114,9 +114,9 @@ setup_replication(){
             fi
             
         elif [ "$myState" == "No" ]; then
-            # update to Proposed, the use of the "not exists" clause is to avoid a race condition.  The actual promotion to
+            # update to Proposed, the use of the TRX and for update is to avoid a race condition.  The actual promotion to
             # slave will happen at the next call
-            mysql -e "update percona.replication set isSlave='Proposed', localIndex=$wsrep_local_index, lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name' and not exists (select * from percona.replication where cluster = '$wsrep_cluster_name' and isSlave = 'Proposed' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT)"    
+            mysql -B -e "begin; select count(*) into @dummy from percona.replication where cluster = 'eadoc_dr_pxdbc_cluster' for update; select host into @hostproposed from percona.replication where cluster = '$wsrep_cluster_name' and isSlave = 'Proposed' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT;update percona.replication set isSlave='Proposed', localIndex=$wsrep_local_index, lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name' and host <> coalesce(@hostproposed,' ');commit;"    
         fi
     else
         # this node is not the best candidate for slave

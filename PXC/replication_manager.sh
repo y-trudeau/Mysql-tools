@@ -197,7 +197,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                     masterOk=$(try_masters)
                     if [ "$masterOk" -eq 1 ]; then
                         # we succeeded reconnecting
-                        mysql -e "update percona.replication set localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"         
+                        mysql -e "update percona.replication set isSlave='Yes', localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"         
                     else
                         # We failed
                         mysql -e "stop slave; reset slave all; update percona.replication set isSlave='Failed', localIndex=$wsrep_local_index, ,lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"
@@ -210,6 +210,9 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
         elif [ "$myState" == "Failed" ]; then
             # We have failed and we are a slave, this is abnormal, fix state to 'No' and bailout
             mysql -e "stop slave; reset slave all; update percona.replication set isSlave='No', localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"            
+        elif [ "$myState" == "Proposed" ]; then
+            # Sanity cleanup, if the node is a slave is still at Proposed, need to be updated
+            mysql -e "update percona.replication set isSlave='Yes', localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"  
         fi
     fi
 else

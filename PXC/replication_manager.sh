@@ -73,7 +73,7 @@ get_slave_status() {
 
 find_best_slave_candidate() {
     # we want the proposed if any, if not the lowest localIndex that has a valid lastHeartbeat
-    mysql -BN -e "select host from percona.replication select host from percona.replication where cluster='$wsrep_cluster_name' and unix_timestamp(lastHearbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT order by localIndex limit 1;"
+    mysql -BN -e "select host from percona.replication select host from percona.replication where cluster='$wsrep_cluster_name' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT order by localIndex limit 1;"
 }
 
 try_masters() {
@@ -116,7 +116,7 @@ setup_replication(){
         elif [ "$myState" == "No" ]; then
             # update to Proposed, the use of the "not exists" clause is to avoid a race condition.  The actual promotion to
             # slave will happen at the next call
-            mysql -e "update percona.replication set isSlave='Proposed', localIndex=$wsrep_local_index, lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name' and not exists (select * from percona.replication where cluster = '$wsrep_cluster_name' and isSlave = 'Proposed' and unix_timestamp(lastHearbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT)"    
+            mysql -e "update percona.replication set isSlave='Proposed', localIndex=$wsrep_local_index, lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name' and not exists (select * from percona.replication where cluster = '$wsrep_cluster_name' and isSlave = 'Proposed' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT)"    
         fi
     else
         # this node is not the best candidate for slave
@@ -142,7 +142,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
         
         if [ "a$myState" == "a" ]; then
             # no row in percona.replication for that node, must be added
-            mysql -e "insert into percona.replication (host,cluster,localIndex,isSlave,lastUpdate,lastHearbeat) Values ('$wsrep_node_name','$wsrep_cluster_name',$wsrep_local_index,'No',now(),now())" 
+            mysql -e "insert into percona.replication (host,cluster,localIndex,isSlave,lastUpdate,lastHeartbeat) Values ('$wsrep_node_name','$wsrep_cluster_name',$wsrep_local_index,'No',now(),now())" 
             myState=No
         elif [ "$myState" == "Failed" ]; then
             # Clear the failed state after twice the normal timeout
@@ -175,10 +175,10 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
             
             if [ "a$slaveDefined" == "a" ]; then
                 # no row in percona.replication, likely uninitialized and we are the slave
-                mysql -e "insert into percona.replication (host,cluster,localIndex,isSlave,lastUpdate,lastHearbeat) Values ('$wsrep_node_name','$wsrep_cluster_name',$wsrep_local_index,'Yes',now(),now())" 
+                mysql -e "insert into percona.replication (host,cluster,localIndex,isSlave,lastUpdate,lastHeartbeat) Values ('$wsrep_node_name','$wsrep_cluster_name',$wsrep_local_index,'Yes',now(),now())" 
             else
                 # That could be problematic, another slave exists let's bail-out
-                mysql -e "stop slave; reset slave all; insert into percona.replication (host,cluster,localIndex,isSlave,lastUpdate,lastHearbeat) Values ('$wsrep_node_name','$wsrep_cluster_name',$wsrep_local_index,'No',now(),now())" 
+                mysql -e "stop slave; reset slave all; insert into percona.replication (host,cluster,localIndex,isSlave,lastUpdate,lastHeartbeat) Values ('$wsrep_node_name','$wsrep_cluster_name',$wsrep_local_index,'No',now(),now())" 
             fi
         elif [ "$myState" == "Yes" ]; then
             # myState is defined

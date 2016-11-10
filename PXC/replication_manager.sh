@@ -36,6 +36,7 @@
 #
 # Finally, the script requires GTID replication to be enabled.
 #
+
 DEBUG_LOG="/tmp/replication_manager.log"
 if [ "${DEBUG_LOG}" -a -w "${DEBUG_LOG}" -a ! -L "${DEBUG_LOG}" ]; then
   exec 9>>"$DEBUG_LOG"
@@ -44,7 +45,13 @@ if [ "${DEBUG_LOG}" -a -w "${DEBUG_LOG}" -a ! -L "${DEBUG_LOG}" ]; then
   set -x
 fi
 
+if [ -f /tmp/replication_manager.off ]; then
+    echo "/tmp/replication_manager.off exists, exiting now"
+    exit
+fi
+
 #Global variables
+EMAIL=''
 FAILED_REPLICATION_TIMEOUT=179  # 3 times the cron interval minus 1s
 MASTERS_LIST="172.29.110.132 172.29.110.133 172.29.110.134"
 #MASTERS_LIST="172.29.78.132 172.29.78.133 172.29.78.134"
@@ -71,6 +78,13 @@ get_slave_status() {
         
 }
 
+send_email() {
+
+    Mailer=$(which mail)
+    if [[ ${#EMAIL} -gt 0 && ${#Mailer} -gt 0 ]]; then
+        echo "$1" | $Mailer -s "$2" $EMAIL
+    fi
+}
 find_best_slave_candidate() {
     # we want the proposed if any, if not the lowest localIndex that has a valid lastHeartbeat
     mysql -BN -e "select host from percona.replication where cluster='$wsrep_cluster_name' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT order by localIndex limit 1;"
@@ -108,9 +122,13 @@ setup_replication(){
             if [ "$masterOk" -eq 1 ]; then
                 # all good, let's proclaim we are the slave
                 mysql -e "update percona.replication set isSlave='Yes', lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"
+              
+                send_email "Node $wsrep_node_name is the new slave for the cluster $wsrep_cluster_name" "New slave"  
             else
                 # this node failed to setup replication
                 mysql -e "update percona.replication set isSlave='Failed', lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"
+                
+                send_email "Node $wsrep_node_name failed to become the new slave for the cluster $wsrep_cluster_name" "Failed slave"  
             fi
             
         elif [ "$myState" == "No" ]; then
@@ -161,6 +179,9 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                 # the current slave is not reporting, 
                 mysql -e "update percona.replication set isSlave='No' where cluster = '$wsrep_cluster_name' and host = '$slaveHost'"
                 # the current slave is not reporting
+                
+                send_email "Node $slaveHost is the slave and failed to report in time in the cluster $wsrep_cluster_name" "Slave node timeout"
+                
                 setup_replication
             else
                 # Slave is reporting, this is the sane path for a node that isn't the slave
@@ -183,7 +204,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
         elif [ "$myState" == "Yes" ]; then
             # myState is defined
             if [[ $Slave_IO_Running == "Yes" && $Slave_SQL_Running == "Yes" ]]; then
-                #replication is going ok
+                #replication is going ok, the sane path when the node is a slave
                 mysql -e "update percona.replication set isSlave='Yes', localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"    
         
             else
@@ -191,6 +212,9 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                 if [ "$Slave_SQL_Running" == "No" ]; then
                     # That's bad, replication failed, let's bailout
                     mysql -e "stop slave; reset slave all; update percona.replication set isSlave='Failed', localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'" 
+                    
+                    send_email "Node $wsrep_node_name failed as a slave for the cluster $wsrep_cluster_name, SQL thread not running" "Failed slave"  
+                    
                 elif [[ $Slave_IO_Running != "Yes" && $Slave_SQL_Running == "Yes" ]]; then
                     # Looks like we cannot reach the master, let's try to reconnect
                     
@@ -201,6 +225,8 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                     else
                         # We failed
                         mysql -e "stop slave; reset slave all; update percona.replication set isSlave='Failed', localIndex=$wsrep_local_index, ,lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"
+                        
+                        send_email "Node $wsrep_node_name failed as a slave for the cluster $wsrep_cluster_name, IO thread not running" "Failed slave"
                     fi
                 fi
             fi
@@ -221,6 +247,8 @@ else
     if [ "a$Master_Host" != "a" ]; then 
         # This node is currently a slave, useless to update the table since the cluster is not sane
         mysql -e "stop slave; reset slave all;"
+        
+        send_email "Node $wsrep_node_name is not longer port of the cluster $wsrep_cluster_name, stopping replicaiton" "Failed slave"
     fi
 
     # Nothing else to do

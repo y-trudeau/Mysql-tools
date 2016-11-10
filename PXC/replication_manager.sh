@@ -62,7 +62,7 @@ get_status_and_variables() {
 
 # retrieve the slave status and set variables
 get_slave_status() {
-    eval `mysql --connect_timeout=10 -B -e 'show slave status\G' 2> /tmp/mysql_error | grep -v Last_IO | grep -v '\*\*\*\*' | sed -e 's/^\s*//g' -e 's/: /=/g' -e 's/\(.*\)=\(.*\)$/\1='"'"'\2'"'"'/g'`
+    eval `mysql --connect_timeout=10 -B -e 'show slave status\G' 2> /tmp/mysql_error | grep -v Last | grep -v '\*\*\*\*' | sed -e ':a' -e 'N' -e '$!ba' -e 's/,\n/, /g' | sed -e 's/^\s*//g' -e 's/: /=/g' -e 's/\(.*\)=\(.*\)$/\1='"'"'\2'"'"'/g'`
 
     if [ "$(grep -c ERROR /tmp/mysql_error)" -gt 0 ]; then
         cat /tmp/mysql_error
@@ -206,7 +206,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
             fi
         elif [ "$myState" == "No" ]; then
             # We are not defined as a slave in the cluster but we are... bailout
-            mysql -e "stop slave; reset slave all; update percona.replication localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"
+            mysql -e "stop slave; reset slave all; update percona.replication set localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"
         elif [ "$myState" == "Failed" ]; then
             # We have failed and we are a slave, this is abnormal, fix state to 'No' and bailout
             mysql -e "stop slave; reset slave all; update percona.replication set isSlave='No', localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"            

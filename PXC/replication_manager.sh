@@ -50,12 +50,15 @@ if [ -f /tmp/replication_manager.off ]; then
     exit
 fi
 
-#Global variables
+#Global variables default values
 EMAIL=''
 FAILED_REPLICATION_TIMEOUT=179  # 3 times the cron interval minus 1s
 MASTERS_LIST="172.29.110.132 172.29.110.133 172.29.110.134"
 #MASTERS_LIST="172.29.78.132 172.29.78.133 172.29.78.134"
 REPLICATION_CREDENTIALS="master_user='repl', master_password='6xF42CdmgWn', MASTER_AUTO_POSITION = 1"
+
+# local override
+source /usr/local/etc/replication_manager.cnf
 
 # retrieve the global status and set variables
 get_status_and_variables() {
@@ -230,6 +233,17 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                     fi
                 fi
             fi
+            
+            # Sanity check, is there more than one slave that is reporting in the cluster
+            slaveCount=$(mysql -BN -e "select count(*) from percona.replication where isSlave = 'Yes' and cluster='$wsrep_cluster_name' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT")
+            if [ "$slaveCount" -gt 1 ]; then
+                # that's bad, more than one slave for the cluster... bailout
+                mysql -e "stop slave; reset slave all; update percona.replication set isSlave='No', localIndex=$wsrep_local_index, ,lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"
+                
+                send_email "Two nodes were slaves for the cluster $wsrep_cluster_name, stopping slave on node $wsrep_node_name" "Two slaves"
+                
+            fi
+            
         elif [ "$myState" == "No" ]; then
             # We are not defined as a slave in the cluster but we are... bailout
             mysql -e "stop slave; reset slave all; update percona.replication set localIndex=$wsrep_local_index, lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name'"

@@ -58,7 +58,9 @@ MASTERS_LIST="172.29.110.132 172.29.110.133 172.29.110.134"
 REPLICATION_CREDENTIALS="master_user='repl', master_password='6xF42CdmgWn', MASTER_AUTO_POSITION = 1"
 
 # local override
-source /usr/local/etc/replication_manager.cnf
+if [ -f "/usr/local/etc/replication_manager.cnf" ]; then
+    source /usr/local/etc/replication_manager.cnf
+fi
 
 # retrieve the global status and set variables
 get_status_and_variables() {
@@ -262,7 +264,7 @@ else
         # This node is currently a slave, useless to update the table since the cluster is not sane
         mysql -e "stop slave; reset slave all;"
         
-        send_email "Node $wsrep_node_name is not longer part of the cluster $wsrep_cluster_name, stopping replicaiton" "Failed slave"
+        send_email "Node $wsrep_node_name is not longer part of the cluster $wsrep_cluster_name, stopping replication" "Failed slave"
     fi
 
     # Nothing else to do

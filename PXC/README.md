@@ -29,4 +29,3 @@ cronjob -l > /dev/null 2>/dev/null; echo '* * * * * /usr/local/bin/replication_m
 
 8. Once the slaves are reporting correctly, enable the cronjob on all the other servers.  They should all be listed in the table after a few minutes.
 
-x

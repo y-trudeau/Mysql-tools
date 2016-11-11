@@ -134,7 +134,7 @@ setup_replication(){
         elif [ "$myState" == "No" ]; then
             # update to Proposed, the use of the TRX and for update is to avoid a race condition.  The actual promotion to
             # slave will happen at the next call
-            mysql -B -e "begin; select count(*) into @dummy from percona.replication where cluster = 'eadoc_dr_pxdbc_cluster' for update; select host into @hostproposed from percona.replication where cluster = '$wsrep_cluster_name' and isSlave = 'Proposed' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT;update percona.replication set isSlave='Proposed', localIndex=$wsrep_local_index, lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name' and host <> coalesce(@hostproposed,' ');commit;"    
+            mysql -B -e "begin; select count(*) into @dummy from percona.replication where cluster = '$wsrep_cluster_name' for update; select host into @hostproposed from percona.replication where cluster = '$wsrep_cluster_name' and isSlave = 'Proposed' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT;update percona.replication set isSlave='Proposed', localIndex=$wsrep_local_index, lastUpdate=now(), lastHeartbeat=now() where cluster = '$wsrep_cluster_name' and host = '$wsrep_node_name' and host <> coalesce(@hostproposed,' ');commit;"    
         fi
     else
         # this node is not the best candidate for slave

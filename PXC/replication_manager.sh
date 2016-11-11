@@ -87,7 +87,7 @@ send_email() {
 }
 find_best_slave_candidate() {
     # we want the proposed if any, if not the lowest localIndex that has a valid lastHeartbeat
-    mysql -BN -e "select host from percona.replication where cluster='$wsrep_cluster_name' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT order by localIndex limit 1;"
+    mysql -BN -e "select host from percona.replication where isSlave != 'Failed' and cluster='$wsrep_cluster_name' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT order by localIndex limit 1;"
 }
 
 try_masters() {

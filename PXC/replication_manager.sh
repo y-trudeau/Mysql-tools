@@ -248,7 +248,7 @@ else
         # This node is currently a slave, useless to update the table since the cluster is not sane
         mysql -e "stop slave; reset slave all;"
         
-        send_email "Node $wsrep_node_name is not longer port of the cluster $wsrep_cluster_name, stopping replicaiton" "Failed slave"
+        send_email "Node $wsrep_node_name is not longer part of the cluster $wsrep_cluster_name, stopping replicaiton" "Failed slave"
     fi
 
     # Nothing else to do

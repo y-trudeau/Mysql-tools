@@ -21,9 +21,10 @@ In order to use the script, perform the following tasks:
 3. Download the script to /usr/local/bin and make it executable by root (or another user)
 4. Make sure root (or another user) has a .my.cnf file with credentials sufficient to manage replication.  SUPER on *.* and ALL on percona.replication should work.
 5. Edit the scripts on each server, adjust the variable EMAIL if you want state changes to be reported, MASTERS_LIST should contains the list of the remote potential masters, REPLICATION_CREDENTIALS should be adjusted for the user used for replication.
-6. Once all is ready, start by enabling the cronjob for the script on the cluster node that is currently the acting as slave.  The cron job calls the script every minutes.
+6. Once all is ready, start by enabling the cronjob for the script on the cluster node that is currently the acting as slave.  The cron job calls the script every minutes:
 
-cronjob -l > /dev/null 2>/dev/null; echo '* * * * * /usr/local/bin/replication_manager.sh > /tmp/replication_manager.out 2> /tmp/replication_manager.err' | crontab -
+    crontab -l > /dev/null 2>/dev/null; 
+    echo '* * * * * /usr/local/bin/replication_manager.sh > /tmp/replication_manager.out 2> /tmp/replication_manager.err' | crontab -
 
 7. Wait a few minutes until you see in the percona.replication table that the host has an row inserted with isSlave set to 'Yes'.  If there is a problem, you can do "touch /tmp/replication_manager.log" to enable the script trace.  See if there is any errors.
 8. Once the slave is reporting correctly, enable the cronjob on all the other cluster nodes.  They should all be listed in the table after a few minutes.

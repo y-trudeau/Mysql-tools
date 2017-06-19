@@ -19,7 +19,7 @@
 #   `localIndex` int(11) DEFAULT NULL,
 #   `isSlave` enum('No','Yes','Proposed','Failed') DEFAULT 'No',
 #   `lastUpdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-#   `lastHeartbeat` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+#   `lastHeartbeat` timestamp NOT NULL DEFAULT '1970-01-01 00:00:00',
 #   `connectionName` varchar(64) NOT NULL,
 #   PRIMARY KEY (`connectionName`,`host`),
 #   KEY idx_host (`host`)
@@ -84,6 +84,7 @@
 # MariaDB GTID implementation, set the variable IS_MARIADB a few lines down
 # to 1 otherwise 0
 #
+#exit
 
 DEBUG_LOG="/tmp/replication_manager.log"
 if [ "${DEBUG_LOG}" -a -w "${DEBUG_LOG}" -a ! -L "${DEBUG_LOG}" ]; then
@@ -100,7 +101,7 @@ fi
 
 #Global variables default values
 FAILED_REPLICATION_TIMEOUT=179  # 3 times the cron interval minus 1s
-IS_MARIADB=1
+IS_MARIADB=0
 
 # set it to the cluster size if you want to distribute the slave, 0 otherwise
 DISTRIBUTE_SLAVE=3 
@@ -131,9 +132,9 @@ slave_connchannel_exists() {
     remoteCluster=$1
     
     if [ "$IS_MARIADB" -eq "1" ]; then
-        cnt=$($MYSQL -N -e 'show all slaves status\G' | grep -c "${wsrep_cluster_name}-${remoteCluster}")
+        cnt=$($MYSQL -N -e 'show all slaves status\G' | grep -ci "${wsrep_cluster_name}-${remoteCluster}")
     else
-        cnt=$($MYSQL -N -e 'show slave status\G' | grep -c "${wsrep_cluster_name}-${remoteCluster}")
+        cnt=$($MYSQL -N -e 'show slave status\G' | grep -ci "${wsrep_cluster_name}-${remoteCluster}")
     fi
     echo $cnt;
 }
@@ -153,7 +154,7 @@ get_slave_status() {
         fi
     else
         if [ "$cnt" -eq 1 ]; then
-            eval `$MYSQL -e "show slave status for channel ${wsrep_cluster_name}-${remoteCluster}\G" 2> /tmp/mysql_error | grep -v Last | grep -v '\*\*\*\*' | sed -e ':a' -e 'N' -e '$!ba' -e 's/,\n/, /g' | sed -e 's/^\s*//g' -e 's/: /=/g' -e 's/\(.*\)=\(.*\)$/\1='"'"'\2'"'"'/g'`
+            eval `$MYSQL -e "show slave status for channel '${wsrep_cluster_name}-${remoteCluster}'\G" 2> /tmp/mysql_error | grep -v Last | grep -v '\*\*\*\*' | sed -e ':a' -e 'N' -e '$!ba' -e 's/,\n/, /g' | sed -e 's/^\s*//g' -e 's/: /=/g' -e 's/\(.*\)=\(.*\)$/\1='"'"'\2'"'"'/g'`
         else
             unset Master_Host
         fi    
@@ -213,8 +214,7 @@ try_masters() {
             fi
             
             $MYSQL -N -e "
-            change master to master_host='${master}', ${REPLICATION_CREDENTIALS}, 
-            MASTER_AUTO_POSITION = 1 for channel '${wsrep_cluster_name}-${remoteCluster}'; 
+            change master to master_host='${master}', ${REPLICATION_CREDENTIALS}, MASTER_AUTO_POSITION = 1 for channel '${wsrep_cluster_name}-${remoteCluster}'; 
             start slave for channel '${wsrep_cluster_name}-${remoteCluster}';"
         fi
         sleep 10  # Give some time for replication to settle
@@ -377,7 +377,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                     setup_replication $remoteCluster
                 else
                     # Slave is reporting, this is the sane path for a node that isn't the slave
-                    $MYSQL -e "4
+                    $MYSQL -e "
                     update percona.replication 
                      set isSlave='No', localIndex=$wsrep_local_index, lastHeartbeat=now() 
                      where connectionName = '${wsrep_cluster_name}-${remoteCluster}' 

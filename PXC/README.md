@@ -188,7 +188,7 @@ Let a least one minute pass then proceed with the other nodes.  You can try a ma
     +-------+------------+---------+---------------------+---------------------+----------------+
 
 
-#Debugging
+## Debugging
 
 The script outputs its trace (bash -x) to the file "/tmp/replication_manager.log" if present.  If there is an error during the manual invocation or something unexpected is happening, touch the file, run the script manually and look at the file content for hints.  If you think there is a bug, I invite you to fill an issue on github:
 

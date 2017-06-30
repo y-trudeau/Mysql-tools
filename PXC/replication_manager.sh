@@ -2,7 +2,7 @@
 #
 # replication_manager.sh
 #
-# Description:  Manages master-master replication between 2 PXC clusters.
+# Description:  Manages master-master replication between multiple PXC clusters.
 #
 # Authors:  Yves Trudeau, Percona
 #
@@ -60,7 +60,7 @@
 # The cluster table defines the remote cluster.  masterCandidates is a space 
 # seperated list of remote masters, either fqdn or IPs, replCreds is the 
 # fragment of the changes master command that provides authentication.  For 
-# example:
+# example, DC1 could be listed as:
 #
 # +---------+----------------------------------------------+-------------------------------------------------+
 # | cluster | masterCandidates                             | replCreds                                       |
@@ -68,7 +68,7 @@
 # | DC1     | 172.29.110.132 172.29.110.133 172.29.110.134 | master_user='repl', master_password='repl_pass' |
 # +---------+----------------------------------------------+-------------------------------------------------+
 #
-#** add port
+# If you need to add a custom port, just add master_port=3307 in the replCreds column.
 #
 # This script must be call every minutes by cron on every node that you 
 # want to be a potential slave.  
@@ -101,7 +101,8 @@ fi
 
 #Global variables default values
 FAILED_REPLICATION_TIMEOUT=179  # 3 times the cron interval minus 1s
-IS_MARIADB=0
+IS_MARIADB=0  # Don't try with MariaDB, couldn't make it to work because of the
+              # way GTID is implemented.
 
 # set it to the cluster size if you want to distribute the slave, 0 otherwise
 DISTRIBUTE_SLAVE=3 

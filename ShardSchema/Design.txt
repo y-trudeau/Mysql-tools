@@ -1,0 +1,71 @@
+ShardSchema is a tool to help manage multiple similar schema. 
+
+The goals are the following:
+
+- support direct sql and pt-online-schema-change
+- handle concurrent ddl with a pool of workers
+- Provide tracability for the schema updates
+- Provide logging for output and errors
+- Catch when a DDL stalled or failed so that it can be retried
+- Have the option of throttling at run time to pause/slowdown during busy hours and resume after
+
+
+ShardSchema uses a configuration
+file in /etc/ShardSchema.cnf for global settings and a mysql database.
+
+The /etc/ShardSchema.cnf contains the following parameters:
+
+dbDSN="skeema:skeema@tcp(10.0.3.87:3306)/shardschema"
+throttlingFile=/tmp/ShardSchema.throttle
+
+
+
+The shards are defined in the table shards:
+
+CREATE TABLE `shards` (
+  `shardId` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `schemaName` varchar(64) NOT NULL,
+  `shardDSN` varchar(200) NOT NULL,
+  `version` int(11) NOT NULL DEFAULT '0',
+  `task` varchar(100) DEFAULT NULL,
+  `lastTaskHb` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `lastUpdate` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`shardId`),
+  KEY `idx_version_task` (`version`,`task`),
+  KEY `idx_task_lasthb` (`task`,`lastTaskHb`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+
+The schema updates are stored in the versions table:
+
+CREATE TABLE `versions` (
+  `version` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `command` varchar(1000) NOT NULL,
+  `tableName` varchar(4) NOT NULL,
+  `cmdType` enum('sql','pt-osc') NOT NULL DEFAULT 'sql',
+  `lastUpdate` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+
+The version column is a sequence by which the alters must be applied. command is the DDL operation which operate on the table tableName. The content of command is of the format of the parameter "--alter" of pt-osc. 
+
+The output of the DDL operations are stored in the log table:
+
+CREATE TABLE `log` (
+  `shardId` int(10) unsigned NOT NULL,
+  `version` int(10) unsigned NOT NULL,
+  `run` tinyint(4) unsigned NOT NULL,
+  `message` text,
+  `output` longtext,
+  `err` longtext,
+  `lastUpdate` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`shardId`,`version`,`run`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+
+
+Eventual improvements
+=====================
+
+Add validation query and answer to "version"
+
+
+Dispatcher: https://www.goinggo.net/2014/01/concurrency-goroutines-and-gomaxprocs.html

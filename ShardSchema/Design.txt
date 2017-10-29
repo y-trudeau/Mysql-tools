@@ -15,7 +15,8 @@ file in /etc/ShardSchema.cnf for global settings and a mysql database.
 
 The /etc/ShardSchema.cnf contains the following parameters:
 
-dbDSN="skeema:skeema@tcp(10.0.3.87:3306)/shardschema"
+# https://github.com/go-sql-driver/mysql#parsetime
+dbDSN="skeema:skeema@tcp(10.0.3.87:3306)/shardschema?parseTime=true"
 throttlingFile=/tmp/ShardSchema.throttle
 
 

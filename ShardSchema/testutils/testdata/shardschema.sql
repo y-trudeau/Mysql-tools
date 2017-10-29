@@ -59,9 +59,9 @@ DROP TABLE IF EXISTS `shards`;
 CREATE TABLE `shards` (
   `shardId` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `schemaName` varchar(64) NOT NULL,
-  `shardDSN` varchar(200) NOT NULL,
-  `version` int(11) NOT NULL DEFAULT '0',
-  `taskName` varchar(100) DEFAULT NULL,
+  `shardDSN`   varchar(200) NOT NULL,
+  `version`    int(11) NOT NULL DEFAULT '0',
+  `taskName`   varchar(100) DEFAULT NULL,
   `lastTaskHb` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `lastUpdate` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`shardId`),

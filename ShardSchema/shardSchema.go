@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"container/list"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/pkg/errors"
 	"github.com/y-trudeau/Mysql-tools/ShardSchema/internal/config"
 	"github.com/y-trudeau/Mysql-tools/ShardSchema/internal/database"
 	"github.com/y-trudeau/Mysql-tools/ShardSchema/internal/models"
@@ -56,10 +58,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := database.NewMySQLConnection(cfg)
+	conn, err := getDBConnection(cfg)
 	if err != nil {
 		log.Printf("cannot connect to the db: %s", err)
+		os.Exit(1)
 	}
+	db := database.NewDatabase(conn)
 
 	// set the task prefix
 	hostname, _ := os.Hostname()
@@ -322,4 +326,48 @@ func worker(db *database.Database, id int, MsgIn <-chan MsgToWorker, MsgOut chan
 			}
 		}
 	}
+}
+
+func getDBConnection(cfg *config.Config) (*sql.DB, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("cannot initialize the DB connection (nil config)")
+	}
+
+	db, err := sql.Open("mysql", buildDSN(cfg))
+	if err != nil {
+		// logging fatal errors is not a good idea because some testing frameworks will hide this
+		// and make it harder to debug. The best is to return an error or nil if there is no error
+		// and make the logging in the caller.
+		// I am using an external "errors" package that wraps the error along with a custom message.
+		// This way you don't lose the original error value in case you need to get some extra info
+		// from it.
+		return nil, errors.Wrap(err, "cannot open db connection to ")
+	}
+	// This would close the connection at the end of this function so it would
+	// be closed when you want to use it.
+	// defer db.Close()
+
+	// Open doesn't really open a connection. Validate DSN data:
+	err = db.Ping()
+	if err != nil {
+		return nil, errors.Wrap(err, "db connection is not active")
+	}
+	return db, nil
+}
+
+func buildDSN(cfg *config.Config) string {
+	dsnCfg := mysql.NewConfig() // Load defaults from mysql pkg
+
+	dsnCfg.Addr = cfg.Host
+	dsnCfg.User = cfg.User
+	dsnCfg.Passwd = cfg.Password
+	dsnCfg.DBName = cfg.DBName
+	dsnCfg.ParseTime = true
+	//dsnCfg.InterpolateParams = true
+	dsnCfg.Net = "tcp"
+	if cfg.Host == "localhost" {
+		dsnCfg.Net = "unix"
+	}
+
+	return dsnCfg.FormatDSN()
 }

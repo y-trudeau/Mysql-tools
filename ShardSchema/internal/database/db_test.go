@@ -4,28 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/y-trudeau/Mysql-tools/ShardSchema/internal/config"
 	"github.com/y-trudeau/Mysql-tools/ShardSchema/internal/models"
 	tu "github.com/y-trudeau/Mysql-tools/ShardSchema/testutils"
 )
 
-func TestConnect(t *testing.T) {
-	cfg := &config.Config{
-		Host:     "127.0.0.1",
-		Port:     3306,
-		User:     "root",
-		Password: "",
-	}
-
-	db, err := NewMySQLConnection(cfg)
-	tu.Ok(t, err)
-	tu.Assert(t, db.Conn != nil, "db handle is nil")
-}
-
 func TestAddOpLog(t *testing.T) {
-	db := getDBHandle(t)
+	db := getDB(t)
 	db.Conn.Exec("DELETE FROM oplog WHERE shardId >= 100")
 
 	err := db.AddOpLog(100, 100, "taskName", "message", "stdout", "stderr")
@@ -51,44 +36,52 @@ func TestAddOpLog(t *testing.T) {
 }
 
 func TestGetMaxVersion(t *testing.T) {
-	db := getDBHandle(t)
+	db := getDB(t)
 	var wantVersion uint32 = 2
 
 	version, err := db.GetMaxVersion()
 	tu.Ok(t, err)
-	tu.Assert(t, version == wantVersion, fmt.Sprintf("invalid version. Got %d, want %d", version))
+	tu.Assert(t, version == wantVersion, fmt.Sprintf("invalid version. Got %d, want %d", version, wantVersion))
 }
 
 // This tests GetNextVersion and implicitly it tests GetVersion
 func TestGetNextVersion(t *testing.T) {
-	db := getDBHandle(t)
+	db := getDB(t)
 
 	wantVersion := &models.Version{
-		Version:    2,
-		Command:    "SELECT 1",
-		TableName:  "t2",
-		CmdType:    "sql",
-		LastUpdate: time.Date(2017, 10, 28, 22, 41, 13, 0, time.UTC),
+		Version:   2,
+		Command:   "SELECT 1",
+		TableName: "t2",
+		CmdType:   "sql",
 	}
 
 	version, err := db.GetNextVersion(1)
 	tu.Ok(t, err)
+	// Overwrite LastUpdate because it was written as NOW(), so we don't know the value
+	wantVersion.LastUpdate = version.LastUpdate
 	tu.Equals(t, version, wantVersion)
 }
 
-func getDBHandle(t *testing.T) *Database {
-	cfg := &config.Config{
-		Host:     "127.0.0.1",
-		Port:     3306,
-		User:     "root",
-		Password: "",
-		DBName:   "shardschema",
+func TestGetShard(t *testing.T) {
+	db := getDB(t)
+
+	wantShard := &models.Shard{
+		ShardId:    1,
+		SchemaName: "shard_1",
+		ShardDSN:   "user:pass@(tcp:10.2.2.1:3306)",
+		Version:    0,
+		TaskName:   sql.NullString{String: "", Valid: false},
 	}
 
-	db, err := NewMySQLConnection(cfg)
-	if err != nil {
-		fmt.Printf("cannot connect to the db: %s", err)
-		t.Fail()
-	}
-	return db
+	shard, err := db.GetShard(1)
+	tu.Ok(t, err)
+	// Overwrite these values because they were written as NOW() so we cannot foresee the values.
+	wantShard.LastTaskHb = shard.LastTaskHb
+	wantShard.LastUpdate = shard.LastUpdate
+	tu.Equals(t, wantShard, shard)
+}
+
+func getDB(t *testing.T) *Database {
+	conn := tu.GetMySQLConnection(t)
+	return NewDatabase(conn)
 }

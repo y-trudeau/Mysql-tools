@@ -4,9 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	mysql "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
-	"github.com/y-trudeau/Mysql-tools/ShardSchema/internal/config"
 	"github.com/y-trudeau/Mysql-tools/ShardSchema/internal/models"
 )
 
@@ -15,34 +13,9 @@ type Database struct {
 	Conn *sql.DB
 }
 
-// NewMySQLConnection initliazes the DB connection using the parameters from the config file
-func NewMySQLConnection(cfg *config.Config) (*Database, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("cannot initialize the DB connection (nil config)")
-	}
-
-	db, err := sql.Open("mysql", buildDSN(cfg))
-	if err != nil {
-		// logging fatal errors is not a good idea because some testing frameworks will hide this
-		// and make it harder to debug. The best is to return an error or nil if there is no error
-		// and make the logging in the caller.
-		// I am using an external "errors" package that wraps the error along with a custom message.
-		// This way you don't lose the original error value in case you need to get some extra info
-		// from it.
-		return nil, errors.Wrap(err, "cannot open db connection to ")
-	}
-	// This would close the connection at the end of this function so it would
-	// be closed when you want to use it.
-	// defer db.Close()
-
-	// Open doesn't really open a connection. Validate DSN data:
-	err = db.Ping()
-	if err != nil {
-		return nil, errors.Wrap(err, "db connection is not active")
-	}
-	return &Database{
-		Conn: db,
-	}, nil
+// NewDatabase initliazes the DB connection using the parameters from the config file
+func NewDatabase(conn *sql.DB) *Database {
+	return &Database{Conn: conn}
 }
 
 // AddOpLog inserts an Oplog entry
@@ -100,7 +73,7 @@ func (d *Database) GetVersion(version uint32) (*models.Version, error) {
 
 // GetShard returns a Shard struc of for a given shardId
 func (d *Database) GetShard(shardID uint32) (*models.Shard, error) {
-	query := "SELECT shardId, schemaName, shardDSN, version, task, lastTaskHb, lastUpdate " +
+	query := "SELECT shardId, schemaName, shardDSN, version, taskName, lastTaskHb, lastUpdate " +
 		"FROM shards WHERE shardId = ?"
 	s := &models.Shard{}
 	err := d.Conn.QueryRow(query, shardID).Scan(&s.ShardId, &s.SchemaName, &s.ShardDSN,
@@ -167,21 +140,4 @@ func (d *Database) ShardUpgradeDone(shardID uint32, version uint32, taskName str
 		return fmt.Errorf("problem with the update, count = %d instead of 1", count)
 	}
 	return nil
-}
-
-func buildDSN(cfg *config.Config) string {
-	dsnCfg := mysql.NewConfig() // Load defaults from mysql pkg
-
-	dsnCfg.Addr = cfg.Host
-	dsnCfg.User = cfg.User
-	dsnCfg.Passwd = cfg.Password
-	dsnCfg.DBName = cfg.DBName
-	dsnCfg.ParseTime = true
-	//dsnCfg.InterpolateParams = true
-	dsnCfg.Net = "tcp"
-	if cfg.Host == "localhost" {
-		dsnCfg.Net = "unix"
-	}
-
-	return dsnCfg.FormatDSN()
 }

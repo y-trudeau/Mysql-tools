@@ -39,7 +39,7 @@ func GetMySQLConnection(tb testing.TB) *sql.DB {
 		return db
 	}
 
-	dsn := os.Getenv("TEST_DSN")
+	dsn := os.Getenv("SHARDSCHEMA_TEST_DSN")
 	if dsn == "" {
 		dsn = "root:@tcp(127.0.0.1:3306)/shardschema"
 	}

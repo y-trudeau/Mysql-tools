@@ -250,7 +250,7 @@ setup_replication(){
             masterOk=$(try_masters $remoteCluster)
             if [ "$masterOk" -eq 1 ]; then
                 # all good, let's proclaim we are the slave
-                mysql -e "
+                $MYSQL -e "
                 update percona.replication 
                  set isSlave='Yes', lastUpdate=now(), lastHeartbeat=now() 
                  where connectionName =  '${wsrep_cluster_name}-${remoteCluster}' 
@@ -316,7 +316,7 @@ isSlaveVal=$1
         reset slave all for channel '${wsrep_cluster_name}-${remoteCluster}';"
     fi
 
-    mysql -e "
+    $MYSQL -e "
     update percona.replication 
      set isSlave='${isSlaveVal}', localIndex=$wsrep_local_index, lastHeartbeat=now() 
      where connectionName = '${wsrep_cluster_name}-${remoteCluster}' 
@@ -404,7 +404,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                 # myState is defined
                 if [[ $Slave_IO_Running == "Yes" && $Slave_SQL_Running == "Yes" ]]; then
                     #replication is going ok, the sane path when the node is a slave
-                    mysql -e "
+                    $MYSQL -e "
                     update percona.replication 
                      set isSlave='Yes', localIndex=$wsrep_local_index, lastHeartbeat=now() 
                      where connectionName = '${wsrep_cluster_name}-${remoteCluster}' 
@@ -424,7 +424,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                         masterOk=$(try_masters $remoteCluster)
                         if [ "$masterOk" -eq 1 ]; then
                             # we succeeded reconnecting
-                            mysql -e "
+                            $MYSQL -e "
                             update percona.replication 
                              set isSlave='Yes', localIndex=$wsrep_local_index, lastHeartbeat=now() 
                              where connectionName = '${wsrep_cluster_name}-${remoteCluster}' 
@@ -438,7 +438,7 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                 fi
                 
                 # Sanity check, is there more than one slave reporting for the connection?
-                slaveCount=$(mysql -BN -e "select count(*) from percona.replication where isSlave = 'Yes' and connectionName = '${wsrep_cluster_name}-${remoteCluster}' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT")
+                slaveCount=$($MYSQL -BN -e "select count(*) from percona.replication where isSlave = 'Yes' and connectionName = '${wsrep_cluster_name}-${remoteCluster}' and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT")
                 if [ "$slaveCount" -gt 1 ]; then
                     # that's bad, more than one slave for the cluster... bailout
                     bail_out No

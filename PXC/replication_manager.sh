@@ -16,6 +16,7 @@
 #
 # CREATE TABLE `replication` (
 #   `host` varchar(40) NOT NULL,
+#   `weight` int(11) NOT NULL DEFAULT 0,
 #   `localIndex` int(11) DEFAULT NULL,
 #   `isSlave` enum('No','Yes','Proposed','Failed') DEFAULT 'No',
 #   `lastUpdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -38,6 +39,12 @@
 #   PRIMARY KEY (`cluster`)
 # ) ENGINE=InnoDB DEFAULT CHARSET=latin1
 #
+# CREATE TABLE `weight` (
+#   `cluster` varchar(31) NOT NULL,
+#   `nodename` varchar(255) NOT NULL,
+#   `weight` int NOT NULL DEFAULT 0,
+#   PRIMARY KEY (`cluster`,`nodename`)
+# ) ENGINE=InnoDB DEFAULT CHARSET=latin1
 # The `link` table contains the topology you want to establish.  For example, if
 # you have the following topology:
 #     DC1 === DC2 === DC3
@@ -186,7 +193,7 @@ find_best_slave_candidate() {
      where isSlave != 'Failed' 
        and connectionName = '${wsrep_cluster_name}-${1}'
        and unix_timestamp(lastHeartbeat) > unix_timestamp() - $FAILED_REPLICATION_TIMEOUT      
-     order by localIndex+currentLinks*${DISTRIBUTE_SLAVE} 
+     order by weight desc, localIndex+currentLinks*${DISTRIBUTE_SLAVE} 
      limit 1;"
 }
 
@@ -197,7 +204,7 @@ try_masters() {
     remoteCluster=$1
     
     REPLICATION_CREDENTIALS=$($MYSQL -N -e "select replCreds from percona.cluster where cluster = '${remoteCluster}';")
-     
+        
     for master in $($MYSQL -N -e "select masterCandidates from percona.cluster where cluster = '${remoteCluster}';"); do
         if [ "$IS_MARIADB" -eq "1" ]; then
             
@@ -342,10 +349,15 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
             
             if [ "a$myState" == "a" ]; then
                 # no row in percona.replication for that node, must be added
+                  #identify if host has weight assign and if not default it to 0
+                  nodeWeight=`$MYSQL -N -e "select  weight from percona.weight where cluster = '${wsrep_cluster_name}' and nodename = '$wsrep_node_name';"`
+                  if [ -z  $nodeWeight ]; then nodeWeight=0;fi
+
+                
                 $MYSQL -e "
                 insert into percona.replication 
-                 (host,connectionName,localIndex,isSlave,lastUpdate,lastHeartbeat) 
-                 Values ('$wsrep_node_name','${wsrep_cluster_name}-${remoteCluster}',$wsrep_local_index,'No',now(),now())" 
+                 (host,weight,connectionName,localIndex,isSlave,lastUpdate,lastHeartbeat) 
+                 Values ('$wsrep_node_name','${nodeWeight}','${wsrep_cluster_name}-${remoteCluster}',$wsrep_local_index,'No',now(),now())" 
                 myState=No
             elif [ "$myState" == "Failed" ]; then
                 # Clear the failed state after twice the normal timeout
@@ -393,9 +405,14 @@ if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
                 
                 if [ "a$slaveDefined" == "a" ]; then
                     # no row in percona.replication, likely uninitialized and we are the slave
+                    
+                    #identify if host has weight assign and if not default it to 0
+                    nodeWeight=`$MYSQL -N -e "select  weight from percona.weight where cluster = '${wsrep_cluster_name}' and nodename = '$wsrep_node_name';"`
+                    if [ -z  $nodeWeight ]; then nodeWeight=0;fi
+                    
                     $MYSQL -e "
-                    insert into percona.replication (host,connectionName,localIndex,isSlave,lastUpdate,lastHeartbeat) 
-                    Values ('$wsrep_node_name','${wsrep_cluster_name}-${remoteCluster}',$wsrep_local_index,'Yes',now(),now())" 
+                    insert into percona.replication (host,weight,connectionName,localIndex,isSlave,lastUpdate,lastHeartbeat) 
+                    Values ('$wsrep_node_name','$nodeWeight','${wsrep_cluster_name}-${remoteCluster}',$wsrep_local_index,'Yes',now(),now())" 
                 else
                     # That could be problematic, another slave exists let's bail-out
                     bail_out No

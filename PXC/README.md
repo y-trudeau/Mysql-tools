@@ -76,6 +76,7 @@ At this we can complete the part of the configuration stored in the database.  F
     mysql> create database if not exists percona;
     mysql> CREATE TABLE `replication` (
       `host` varchar(40) NOT NULL,
+      `weight` int(11) NOT NULL DEFAULT 0,
       `localIndex` int(11) DEFAULT NULL,
       `isSlave` enum('No','Yes','Proposed','Failed') DEFAULT 'No',
       `lastUpdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -95,6 +96,12 @@ At this we can complete the part of the configuration stored in the database.  F
       `clusterMaster` varchar(31) NOT NULL,
       PRIMARY KEY (`clusterSlave`,`clusterMaster`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+    CREATE TABLE `weight` (
+     `cluster` varchar(31) NOT NULL,
+     `nodename` varchar(255) NOT NULL,
+     `weight` int NOT NULL DEFAULT 0, 
+   PRIMARY KEY (`cluster`,`nodename`)
+ ) ENGINE=InnoDB DEFAULT CHARSET=latin1
     
 The *replication* table will be written to by the tool, nothing needs to be inserted in that table.  The *cluster* table contains the details of each clusters.  In our case let's define our 3 clusters:
 
@@ -109,8 +116,15 @@ and the links we want:
     INSERT INTO `link` VALUES ('DC2','DC1');
     INSERT INTO `link` VALUES ('DC3','DC1');
 
+in the case you want to add the weight:
+    INSERT INTO `weight` VALUES('DC1','DC1-1',10); 
+    INSERT INTO `weight` VALUES('DC1','DC1-2',11); 
+    INSERT INTO `weight` VALUES('DC2','DC2-1',9);
+    INSERT INTO `weight` VALUES('DC2','DC2-2',12);
+    INSERT INTO `weight` VALUES('DC3','DC3-1',11);
+The node in the cluster with the highest value will be preferred as candidate.
 
-We will not provisiong the remote clusters and start replication. On one of the DC1 node, for example DC1-1, perform a mysqldump with:
+We will now provisioning the remote clusters and start replication. On one of the DC1 node, for example DC1-1, perform a mysqldump with:
 
     [root@DC1-1 ~]# mysqldump -u root -p --master-data=2 --single-transaction -R -A -E > dump.sql
 
@@ -153,14 +167,14 @@ When executed for the first time, the replication manager will detect the curren
 The replication state should be unchanged and the *percona.replication* table should have the following rows:
 
     mysql> select * from percona.replication;
-    +-------+------------+---------+---------------------+---------------------+----------------+
-    | host  | localIndex | isSlave | lastUpdate          | lastHeartbeat       | connectionName |
-    +-------+------------+---------+---------------------+---------------------+----------------+
-    | DC1-1 |          1 | Yes     | 2017-06-30 13:03:01 | 2017-06-30 13:03:01 | DC1-DC2        |
-    | DC1-1 |          1 | Yes     | 2017-06-30 13:03:01 | 2017-06-30 13:03:01 | DC1-DC3        |
-    | DC2-1 |          1 | Yes     | 2017-06-30 13:03:01 | 2017-06-30 13:03:01 | DC2-DC1        |
-    | DC3-1 |          1 | Yes     | 2017-06-30 13:03:01 | 2017-06-30 13:03:01 | DC3-DC1        |
-    +-------+------------+---------+---------------------+---------------------+----------------+
+    +-------+--------+------------+---------+---------------------+---------------------+----------------+
+    | host  | weight | localIndex | isSlave | lastUpdate          | lastHeartbeat       | connectionName |
+    +-------+------- +------------+---------+---------------------+---------------------+----------------+
+    | DC1-1 |      10|          1 | Yes     | 2017-06-30 13:03:01 | 2017-06-30 13:03:01 | DC1-DC2        |
+    | DC1-1 |      11|          1 | Yes     | 2017-06-30 13:03:01 | 2017-06-30 13:03:01 | DC1-DC3        |
+    | DC2-1 |       9|          1 | Yes     | 2017-06-30 13:03:01 | 2017-06-30 13:03:01 | DC2-DC1        |
+    | DC3-1 |      11|          1 | Yes     | 2017-06-30 13:03:01 | 2017-06-30 13:03:01 | DC3-DC1        |
+    +-------+--------+------------+---------+---------------------+---------------------+----------------+
     12 rows in set (0.00 sec)
 
 That is the sane behavior.  If you don't get this, go to the *Debugging* section below.  On these same nodes, enable the cron job:
@@ -170,22 +184,22 @@ That is the sane behavior.  If you don't get this, go to the *Debugging* section
 Let a least one minute pass then proceed with the other nodes.  You can try a manual run first, see if the script added a line to the replication table for the host, likely with isSlave = No, and then add the cron jobs.  In my test setup, the end result is:
 
     mysql> select * from percona.replication;
-    +-------+------------+---------+---------------------+---------------------+----------------+
-    | host  | localIndex | isSlave | lastUpdate          | lastHeartbeat       | connectionName |
-    +-------+------------+---------+---------------------+---------------------+----------------+
-    | DC1-1 |          1 | Yes     | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC2        |
-    | DC1-2 |          2 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC2        |
-    | DC1-3 |          0 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC2        |
-    | DC1-1 |          1 | Yes     | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC3        |
-    | DC1-2 |          2 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC3        |
-    | DC1-3 |          0 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC3        |
-    | DC2-1 |          1 | Yes     | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC2-DC1        |
-    | DC2-2 |          0 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC2-DC1        |
-    | DC2-3 |          2 | No      | 2017-06-19 15:58:01 | 2017-06-19 15:58:01 | DC2-DC1        |
-    | DC3-1 |          1 | Yes     | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC3-DC1        |
-    | DC3-2 |          2 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC3-DC1        |
-    | DC3-3 |          0 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC3-DC1        |
-    +-------+------------+---------+---------------------+---------------------+----------------+
+    +-------+--------+------------+---------+---------------------+---------------------+----------------+
+    | host  | weight | localIndex | isSlave | lastUpdate          | lastHeartbeat       | connectionName |
+    +-------+------- +------------+---------+---------------------+---------------------+----------------+
+    | DC1-1 |      10|          1 | Yes     | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC2        |
+    | DC1-2 |      11|          2 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC2        |
+    | DC1-3 |       9|          0 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC2        |
+    | DC1-1 |      11|          1 | Yes     | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC3        |
+    | DC1-2 |      12|          2 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC3        |
+    | DC1-3 |       0|          0 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC1-DC3        |
+    | DC2-1 |       0|          1 | Yes     | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC2-DC1        |
+    | DC2-2 |       0|          0 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC2-DC1        |
+    | DC2-3 |       0|          2 | No      | 2017-06-19 15:58:01 | 2017-06-19 15:58:01 | DC2-DC1        |
+    | DC3-1 |       0|          1 | Yes     | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC3-DC1        |
+    | DC3-2 |       0|          2 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC3-DC1        |
+    | DC3-3 |       0|          0 | No      | 2017-06-30 13:13:01 | 2017-06-30 13:13:01 | DC3-DC1        |
+    +-------+--------+------------+--------+----------------------+---------------------+----------------+
 
 
 ## Debugging

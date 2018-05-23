@@ -47,8 +47,8 @@ if [ "${DEBUG_LOG}" -a -w "${DEBUG_LOG}" -a ! -L "${DEBUG_LOG}" ]; then
 	set -x
 fi
 
-masterCandidates="10.60.145.1 10.60.145.2 10.60.145.3"
-replCreds="master_user='replNewDen', master_password='XXXXXXX'"
+masterCandidates="10.1.1.10 10.1.1.11 10.1.1.12"
+replCreds="master_user='repl', master_password='replpass'"
 
 if [ -f /tmp/slave_manager.off ]; then
 	echo "/tmp/slave_manager.off exists, exiting now"

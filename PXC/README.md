@@ -1,6 +1,6 @@
 # Replication manager for PXC
 
-This tool helps manage asynchronous replication between PXC clusters. The typical use case would be to manager a master-master replication link between two distincts PXC clusters but the tools supports more complex topology.  
+This tool helps manage asynchronous replication between PXC clusters. If you are looking to manage replication of a standalone slave to a PXC cluster, look below at the slave manager script.  The typical use case would be to manager a master-master replication link between two distincts PXC clusters but the tools supports more complex topology.  
 
 In each cluster, any node can be the slave to another cluster and that slave can point to any of the remote nodes for its master.  The existing galera communication layer is used within a cluster for quorum and to exchange information between the nodes.  Messages are simply written to a shared table in the percona schema.  This allows a node to determine if another node in the cluster is already acting as a slave and if it is reporting correctly.  If no node in the cluster is a declaring itself a slave for a given replication link, the reporting node that has the lowest local index will propose itself as a slave and if not contested, will then start slaving.  When a given cluster needs to be slave for more than one remote cluster, it is possible to distribute the slaves across the nodes, this is the default behavior. If you don't what to distribute the slaves, you need to set the variable "DISTRIBUTE_SLAVE" to 0 in the script header. If the node that is the slave loses connection with its master, it will try to reconnect to the other potential masters, if more than one master is provided.  If it fails, it will report "Failed" so that another node in the cluster can try to become a slave.  The "Failed" state will clear up after three minutes. 
 
@@ -207,3 +207,27 @@ Let a least one minute pass then proceed with the other nodes.  You can try a ma
 The script outputs its trace (bash -x) to the file "/tmp/replication_manager.log" if present.  If there is an error during the manual invocation or something unexpected is happening, touch the file, run the script manually and look at the file content for hints.  If you think there is a bug, I invite you to fill an issue on github:
 
     https://github.com/y-trudeau/Mysql-tools/issues/new
+
+## Slave manager for PXC
+
+This script is a simplified version intended to manage a single slave. In order to use it, you need to edit the script and adjust the masterCandidates and replCreds variables.  If the PXC nodes are 10.1.1.10, 10.1.1.11 and 10.1.1.12 and the replication is 'repluser' with a password set to 'replpass' then the variables should look like::
+
+   masterCandidates="10.1.1.10 10.1.1.11 10.1.1.12"
+   replCreds="master_user='repl', master_password='replpass'"
+
+The credentials to the local MySQL server should be in the ~/.my.cnf file of the user under which the cron job will be defined. The last step is to enable the cron job::
+
+    * * * * * /usr/local/bin/slave_manager.sh 
+
+which will run every minute.
+
+If you have issues, do::
+
+   touch /tmp/slave_manager.log 
+   chmod a+w /tmp/slave_manager.log
+
+and look at the bash trace file for anything suspicious. If you do maintenance on the slave and you don't want the script to mess around, do::
+
+   touch /tmp/slave_manager.off
+
+Once done, just remove the file to get the script back to normal.

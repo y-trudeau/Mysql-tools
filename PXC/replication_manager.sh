@@ -221,8 +221,9 @@ try_masters() {
             
             $MYSQL -N -e "
             change master '${wsrep_cluster_name}-${remoteCluster}' to master_host='$master', 
-              ${REPLICATION_CREDENTIALS}, MASTER_USE_GTID = current_pos,
-              IGNORE_DOMAIN_IDS = (${wsrep_gtid_domain_id}); 
+              ${REPLICATION_CREDENTIALS}, MASTER_USE_GTID = slave_pos,
+              IGNORE_DOMAIN_IDS = (${wsrep_gtid_domain_id});
+            set global gtid_slave_pos='${gtid_current_pos}';
             start slave '${wsrep_cluster_name}-${remoteCluster}';"
         else
             if [ "$(slave_connchannel_exists $remoteCluster)" -eq "1" ]; then

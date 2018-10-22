@@ -45,6 +45,7 @@
 #   `weight` int NOT NULL DEFAULT 0,
 #   PRIMARY KEY (`cluster`,`nodename`)
 # ) ENGINE=InnoDB DEFAULT CHARSET=latin1
+#
 # The `link` table contains the topology you want to establish.  For example, if
 # you have the following topology:
 #     DC1 === DC2 === DC3
@@ -89,7 +90,13 @@
 #
 # Finally, the script requires GTID replication to be enabled.  If you are using 
 # MariaDB GTID implementation, set the variable IS_MARIADB a few lines down
-# to 1 otherwise 0
+# to 1 otherwise 0.  For MariaDB, you'll need 10.1.4+ and the following variables:
+# 
+# wsrep_gtid_mode = ON
+# wsrep_gtid_domain_id set to the the same value within a cluster and a distinct
+# value between the clusters
+# gtid_ignore_duplicates = ON
+# server-id, same value within a cluster, disctinct across clusters
 #
 #exit
 
@@ -214,7 +221,8 @@ try_masters() {
             
             $MYSQL -N -e "
             change master '${wsrep_cluster_name}-${remoteCluster}' to master_host='$master', 
-              ${REPLICATION_CREDENTIALS}, MASTER_USE_GTID = current_pos; 
+              ${REPLICATION_CREDENTIALS}, MASTER_USE_GTID = current_pos,
+              IGNORE_DOMAIN_IDS = (${wsrep_gtid_domain_id}); 
             start slave '${wsrep_cluster_name}-${remoteCluster}';"
         else
             if [ "$(slave_connchannel_exists $remoteCluster)" -eq "1" ]; then

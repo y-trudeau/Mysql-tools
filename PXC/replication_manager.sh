@@ -115,8 +115,6 @@ fi
 
 #Global variables default values
 FAILED_REPLICATION_TIMEOUT=179  # 3 times the cron interval minus 1s
-IS_MARIADB=0  # Don't try with MariaDB, couldn't make it to work because of the
-              # way GTID is implemented.
 
 # set it to the cluster size if you want to distribute the slave, 0 otherwise
 DISTRIBUTE_SLAVE=3 
@@ -340,6 +338,9 @@ isSlaveVal=$1
 }
 
 get_status_and_variables
+
+# Is this a MariaDB server?
+IS_MARIADB=$(echo "$version" | grep -ci mariadb)
 
 if [[ $wsrep_cluster_status == 'Primary' && ( $wsrep_local_state -eq 4 \
     || $wsrep_local_state -eq 2 ) ]]; then

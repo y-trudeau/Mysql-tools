@@ -37,7 +37,7 @@ else
       lastfile=`$mysqlclient -BN -u $mysqluser --password=$mysqluser --host=$mysqlmaster -e 'show master status;' 2> /dev/null | awk '{ print $1 }
 '`
    fi
-   $mysqlbinlog56 --stop-never-slave-server-id=$streamer_slave_id --read-from-remote-master=BINLOG-DUMP-NON-GTIDS --host=$mysqlmaster --raw --stop
--never  -u $mysqluser --password=$mysqlpass $lastfile 2> /dev/null &
+   $mysqlbinlog56 --stop-never-slave-server-id=$streamer_slave_id --read-from-remote-master=BINLOG-DUMP-NON-GTIDS --host=$mysqlmaster \
+	   --raw --stop-never  -u $mysqluser --password=$mysqlpass $lastfile 2> /dev/null &
    echo -n $! > $pidfile
 fi

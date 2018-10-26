@@ -1,22 +1,24 @@
 # Replication manager for PXC
 
-This tool helps manage asynchronous replication between PXC clusters. If you are looking to manage replication of a standalone slave to a PXC cluster, look below at the slave manager script.  The typical use case would be to manager a master-master replication link between two distincts PXC clusters but the tools supports more complex topology.  
+This tool helps manage asynchronous replication between PXC or MariaDB clusters. If you are looking to manage replication of a standalone slave to a PXC cluster, look below at the slave manager script.  The typical use case would be to manager a master-master replication link between two distincts PXC clusters but the tools supports more complex topology.  
 
 In each cluster, any node can be the slave to another cluster and that slave can point to any of the remote nodes for its master.  The existing galera communication layer is used within a cluster for quorum and to exchange information between the nodes.  Messages are simply written to a shared table in the percona schema.  This allows a node to determine if another node in the cluster is already acting as a slave and if it is reporting correctly.  If no node in the cluster is a declaring itself a slave for a given replication link, the reporting node that has the lowest local index will propose itself as a slave and if not contested, will then start slaving.  When a given cluster needs to be slave for more than one remote cluster, it is possible to distribute the slaves across the nodes, this is the default behavior. If you don't what to distribute the slaves, you need to set the variable "DISTRIBUTE_SLAVE" to 0 in the script header. If the node that is the slave loses connection with its master, it will try to reconnect to the other potential masters, if more than one master is provided.  If it fails, it will report "Failed" so that another node in the cluster can try to become a slave.  The "Failed" state will clear up after three minutes. 
 
 **NOTE**: Such setup can easily cause replication conflicts, make sure your schema and queries are resilient.  Compound primary keys are your friends.
 
-## Deployment
+## Deployment with PXC
 
-Because of the subtle relationship between PXC galera replication and GTID replication, deploying this script in production involves more steps than one could think of a simple solution managing replication.   This solution works only with GTID based replication.  Furthermore, only Oracle based GTID implementation works. The way MariaDB works with domain-id and server-id just breaks replication all the time.  Within a PXC cluster, there must be a single GTID sequence.  If you enabled GTID after the PXC cluster is up, you'll need to shutdown MySQL on all nodes except one and force SST at restart by removing the files in the datadir. 
+Because of the subtle relationship between PXC galera replication and GTID replication, deploying this script in production involves more steps than one could think of a simple solution managing replication.   This solution works only with GTID based replication.  Furthermore, the MariaDB  GTID implementation is different from the Oracle's one.  There are specific notes regarding MariaDB in the documentation.  Only MariaDB 10.1.4+ works with this script.  Within a PXC cluster, there must be only a single GTID sequence.  If you enabled GTID after the PXC cluster is up, you'll need to shutdown MySQL on all nodes except one and force SST at restart by removing the files in the datadir. 
 
 In the following steps, we'll assume the goal is to deploy and master-master replication links between three data-centers: DC1, DC2 and DC3.  In each DC, there are 3 PXC nodes forming distincts Galera clusters.  In DC1 the 3 nodes are DC1-1, DC1-2 and DC1-3.  The nodes in the other DCs are similarly labeled.  The goal is to have the following topology:
 
     DC2 <=> DC1 <=> DC3
 
-DC1 replicates (is a slave) of DC2 and DC3.  DC2 and DC3 are slaves of DC1.  Let's start by the configuration of DC1.  The minimal MySQL configuration file common to all three DC1 nodes is:
+DC1 replicates (is a slave) of DC2 and DC3.  DC2 and DC3 are slaves of DC1.  Let's start by the configuration of DC1.  The minimal MySQL configuration file common to all three DC1 nodes will like the ones proposed in the next sections.
 
+### Minimal configuration when using PXC
 
+::
     [mysqld]
     # General galera reqs
     default_storage_engine=InnoDB
@@ -43,7 +45,41 @@ DC1 replicates (is a slave) of DC2 and DC3.  DC2 and DC3 are slaves of DC1.  Let
     wsrep_sst_method=xtrabackup-v2
     wsrep_sst_auth="root:root"
 
-All nodes will have the same server-id value and the repositories are set to "TABLE" because the multi-source replication syntax will be used since a given node could end up being the slave of more than one remote cluster.  We assume the user "root@localhost" exists with the password "root".  The first step is to bootstrap the cluster on node DC1-1:
+All nodes will have the same server-id value and the repositories are set to "TABLE" because the multi-source replication syntax will be used since a given node could end up being the slave of more than one remote cluster.  We assume the user "root@localhost" exists with the password "root".  
+
+### Minimal configuration when using MariaDB 10.1.4+
+
+::
+    [mysqld]
+    # General galera reqs
+    default_storage_engine=InnoDB
+    innodb_autoinc_lock_mode=2
+    
+    # Replication settings
+    binlog_format=ROW
+    server-id=1
+    log-bin=mysql-bin
+    log_slave_updates
+    expire_logs_days=7
+    gtid_ignore_duplicates
+        
+    # Galera configuration
+    wsrep_provider=/usr/lib/galera/libgalera_smm.so
+    wsrep_cluster_address=gcomm://10.0.4.90,10.0.4.91,10.0.4.92
+    wsrep_cluster_name=DC1
+    default_storage_engine=InnoDB
+    innodb_autoinc_lock_mode=2
+    wsrep_on=ON
+    wsrep_sst_method=mariabackup
+    wsrep_sst_auth=root:root
+    wsrep_gtid_domain_id=1
+    wsrep_gtid_mode=ON
+
+We assume the user "root@localhost" exists with the password "root". The "server-id" and "wsres_gtid_domain_id" values must be the same within a cluster and distinct between clusters.
+
+## Deployment
+
+The first step is to bootstrap the cluster on node DC1-1:
 
     [root@DC1-1 ~]# /etc/init.d/mysql stop 
     [root@DC1-1 ~]# /etc/init.d/mysql bootstrap-pxc

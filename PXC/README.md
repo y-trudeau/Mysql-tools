@@ -18,7 +18,6 @@ DC1 replicates (is a slave) of DC2 and DC3.  DC2 and DC3 are slaves of DC1.  Let
 
 ### Minimal configuration when using PXC
 
-::
 
     [mysqld]
     # General galera reqs
@@ -50,7 +49,6 @@ All nodes will have the same server-id value and the repositories are set to "TA
 
 ### Minimal configuration when using MariaDB 10.1.4+
 
-::
 
     [mysqld]
     # General galera reqs

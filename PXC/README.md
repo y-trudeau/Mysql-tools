@@ -79,6 +79,8 @@ We assume the user "root@localhost" exists with the password "root". The "server
 
 ## Configuration steps
 
+*MariaDB steps are slightly different*
+
 The first step is to bootstrap the cluster on node DC1-1:
 
     [root@DC1-1 ~]# /etc/init.d/mysql stop 
@@ -248,8 +250,8 @@ The script outputs its trace (bash -x) to the file "/tmp/replication_manager.log
 
 This script is a simplified version intended to manage a single slave. In order to use it, you need to edit the script and adjust the masterCandidates and replCreds variables.  If the PXC nodes are 10.1.1.10, 10.1.1.11 and 10.1.1.12 and the replication is 'repluser' with a password set to 'replpass' then the variables should look like:
 
-   masterCandidates="10.1.1.10 10.1.1.11 10.1.1.12"
-   replCreds="master_user='repl', master_password='replpass'"
+    masterCandidates="10.1.1.10 10.1.1.11 10.1.1.12"
+    replCreds="master_user='repl', master_password='replpass'"
 
 The credentials to the local MySQL server should be in the ~/.my.cnf file of the user under which the cron job will be defined. The last step is to enable the cron job:
 
@@ -259,11 +261,11 @@ which will run every minute.
 
 If you have issues, do:
 
-   touch /tmp/slave_manager.log 
-   chmod a+w /tmp/slave_manager.log
+    touch /tmp/slave_manager.log 
+    chmod a+w /tmp/slave_manager.log
 
 and look at the bash trace file for anything suspicious. If you do maintenance on the slave and you don't want the script to mess around, do:
 
-   touch /tmp/slave_manager.off
+    touch /tmp/slave_manager.off
 
 Once done, just remove the file to get the script back to normal.

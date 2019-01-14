@@ -1,4 +1,4 @@
-# Replication manager for PXC
+# Replication manager for PXC and MariaDB
 
 This tool helps manage asynchronous replication between PXC or MariaDB clusters. If you are looking to manage replication of a standalone slave to a PXC cluster, look below at the slave manager script.  The typical use case would be to manager a master-master replication link between two distincts PXC clusters but the tools supports more complex topology.  
 
@@ -6,7 +6,7 @@ In each cluster, any node can be the slave to another cluster and that slave can
 
 **NOTE**: Such setup can easily cause replication conflicts, make sure your schema and queries are resilient.  Compound primary keys are your friends.
 
-## Deployment with PXC
+## Deployment 
 
 Because of the subtle relationship between PXC galera replication and GTID replication, deploying this script in production involves more steps than one could think of a simple solution managing replication.   This solution works only with GTID based replication.  Furthermore, the MariaDB  GTID implementation is different from the Oracle's one.  There are specific notes regarding MariaDB in the documentation.  Only MariaDB 10.1.4+ works with this script.  Within a PXC cluster, there must be only a single GTID sequence.  If you enabled GTID after the PXC cluster is up, you'll need to shutdown MySQL on all nodes except one and force SST at restart by removing the files in the datadir. 
 
@@ -77,7 +77,7 @@ All nodes will have the same server-id value and the repositories are set to "TA
 
 We assume the user "root@localhost" exists with the password "root". The "server-id" and "wsres_gtid_domain_id" values must be the same within a cluster and distinct between clusters.
 
-## Deployment
+## Configuration steps
 
 The first step is to bootstrap the cluster on node DC1-1:
 
@@ -246,23 +246,23 @@ The script outputs its trace (bash -x) to the file "/tmp/replication_manager.log
 
 ## Slave manager for PXC
 
-This script is a simplified version intended to manage a single slave. In order to use it, you need to edit the script and adjust the masterCandidates and replCreds variables.  If the PXC nodes are 10.1.1.10, 10.1.1.11 and 10.1.1.12 and the replication is 'repluser' with a password set to 'replpass' then the variables should look like::
+This script is a simplified version intended to manage a single slave. In order to use it, you need to edit the script and adjust the masterCandidates and replCreds variables.  If the PXC nodes are 10.1.1.10, 10.1.1.11 and 10.1.1.12 and the replication is 'repluser' with a password set to 'replpass' then the variables should look like:
 
    masterCandidates="10.1.1.10 10.1.1.11 10.1.1.12"
    replCreds="master_user='repl', master_password='replpass'"
 
-The credentials to the local MySQL server should be in the ~/.my.cnf file of the user under which the cron job will be defined. The last step is to enable the cron job::
+The credentials to the local MySQL server should be in the ~/.my.cnf file of the user under which the cron job will be defined. The last step is to enable the cron job:
 
     * * * * * /usr/local/bin/slave_manager.sh 
 
 which will run every minute.
 
-If you have issues, do::
+If you have issues, do:
 
    touch /tmp/slave_manager.log 
    chmod a+w /tmp/slave_manager.log
 
-and look at the bash trace file for anything suspicious. If you do maintenance on the slave and you don't want the script to mess around, do::
+and look at the bash trace file for anything suspicious. If you do maintenance on the slave and you don't want the script to mess around, do:
 
    touch /tmp/slave_manager.off
 

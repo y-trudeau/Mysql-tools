@@ -134,12 +134,12 @@ At this we can complete the part of the configuration stored in the database.  F
       `clusterMaster` varchar(31) NOT NULL,
       PRIMARY KEY (`clusterSlave`,`clusterMaster`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-    CREATE TABLE `weight` (
-     `cluster` varchar(31) NOT NULL,
-     `nodename` varchar(255) NOT NULL,
-     `weight` int NOT NULL DEFAULT 0, 
-   PRIMARY KEY (`cluster`,`nodename`)
- ) ENGINE=InnoDB DEFAULT CHARSET=latin1
+    mysql> CREATE TABLE `weight` (
+      `cluster` varchar(31) NOT NULL,
+      `nodename` varchar(255) NOT NULL,
+      `weight` int NOT NULL DEFAULT 0, 
+      PRIMARY KEY (`cluster`,`nodename`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1
     
 The *replication* table will be written to by the tool, nothing needs to be inserted in that table.  The *cluster* table contains the details of each clusters.  In our case let's define our 3 clusters:
 

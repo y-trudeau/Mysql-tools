@@ -111,8 +111,9 @@ You can start using the database and adding grants in DC1 but do not touch DC2 a
     
 At this we can complete the part of the configuration stored in the database.  First, let's create the tables the replication manager need.  Let's create them on DC1-1:
 
-    mysql> create database if not exists percona;
-    mysql> CREATE TABLE `replication` (
+    create database if not exists percona;
+    use percona;
+    CREATE TABLE `replication` (
       `host` varchar(40) NOT NULL,
       `weight` int(11) NOT NULL DEFAULT 0,
       `localIndex` int(11) DEFAULT NULL,
@@ -123,13 +124,13 @@ At this we can complete the part of the configuration stored in the database.  F
       PRIMARY KEY (`connectionName`,`host`),
       KEY `idx_host` (`host`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-    mysql> CREATE TABLE `cluster` (
+    CREATE TABLE `cluster` (
       `cluster` varchar(31) NOT NULL,
       `masterCandidates` varchar(255) NOT NULL,
       `replCreds` varchar(255) NOT NULL,
       PRIMARY KEY (`cluster`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-    mysql> CREATE TABLE `link` (
+    CREATE TABLE `link` (
       `clusterSlave` varchar(31) NOT NULL,
       `clusterMaster` varchar(31) NOT NULL,
       PRIMARY KEY (`clusterSlave`,`clusterMaster`)
@@ -138,8 +139,8 @@ At this we can complete the part of the configuration stored in the database.  F
      `cluster` varchar(31) NOT NULL,
      `nodename` varchar(255) NOT NULL,
      `weight` int NOT NULL DEFAULT 0, 
-   PRIMARY KEY (`cluster`,`nodename`)
- ) ENGINE=InnoDB DEFAULT CHARSET=latin1
+     PRIMARY KEY (`cluster`,`nodename`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
     
 The *replication* table will be written to by the tool, nothing needs to be inserted in that table.  The *cluster* table contains the details of each clusters.  In our case let's define our 3 clusters:
 

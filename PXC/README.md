@@ -156,11 +156,13 @@ and the links we want:
     INSERT INTO `link` VALUES ('DC3','DC1');
 
 in the case you want to add the weight:
+
     INSERT INTO `weight` VALUES('DC1','DC1-1',10); 
     INSERT INTO `weight` VALUES('DC1','DC1-2',11); 
     INSERT INTO `weight` VALUES('DC2','DC2-1',9);
     INSERT INTO `weight` VALUES('DC2','DC2-2',12);
     INSERT INTO `weight` VALUES('DC3','DC3-1',11);
+
 The node in the cluster with the highest value will be preferred as candidate.
 
 We will now provisioning the remote clusters and start replication. On one of the DC1 node, for example DC1-1, perform a mysqldump with:

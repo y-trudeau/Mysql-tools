@@ -119,7 +119,7 @@ At this we can complete the part of the configuration stored in the database.  F
       `localIndex` int(11) DEFAULT NULL,
       `isSlave` enum('No','Yes','Proposed','Failed') DEFAULT 'No',
       `lastUpdate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      `lastHeartbeat` timestamp NOT NULL DEFAULT '1970-01-01 00:00:01',
+      `lastHeartbeat` timestamp NOT NULL DEFAULT '1971-01-01 00:00:00',
       `connectionName` varchar(64) NOT NULL,
       PRIMARY KEY (`connectionName`,`host`),
       KEY `idx_host` (`host`)

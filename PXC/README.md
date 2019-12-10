@@ -34,6 +34,7 @@ DC1 replicates (is a slave) of DC2 and DC3.  DC2 and DC3 are slaves of DC1.  Let
     enforce_gtid_consistency=ON
     master_info_repository = TABLE
     relay_log_info_repository = TABLE
+    skip-slave-start
         
     # Galera configuration
     wsrep_provider=/usr/lib/galera3/libgalera_smm.so
@@ -62,6 +63,7 @@ All nodes will have the same server-id value and the repositories are set to "TA
     log_slave_updates
     expire_logs_days=7
     gtid_ignore_duplicates
+    skip-slave-start
         
     # Galera configuration
     wsrep_provider=/usr/lib/galera/libgalera_smm.so
@@ -142,7 +144,7 @@ At this we can complete the part of the configuration stored in the database.  F
      PRIMARY KEY (`cluster`,`nodename`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
     
-The *replication* table will be written to by the tool, nothing needs to be inserted in that table.  The *cluster* table contains the details of each clusters.  In our case let's define our 3 clusters:
+The *replication* table will be written to by the tool, nothing needs to be inserted in that table.  The *cluster* table contains the details of each clusters.  In our case let's define our 3 clusters where the cluster names come from their respective *wsrep_cluster_name* variable values:
 
     INSERT INTO `cluster` VALUES ('DC1','10.0.4.160 10.0.4.162 10.0.4.163','master_user=\'repl\', master_password=\'replpass\'');
     INSERT INTO `cluster` VALUES ('DC2','10.0.4.164 10.0.4.165 10.0.4.166','master_user=\'repl\', master_password=\'replpass\'');
@@ -165,11 +167,11 @@ in the case you want to add the weight:
 
 The node in the cluster with the highest value will be preferred as candidate.
 
-We will now provisioning the remote clusters and start replication. On one of the DC1 node, for example DC1-1, perform a mysqldump with:
+We will now provisioning the remote clusters and start replication. On one of the DC1 nodes, for example DC1-1, perform a mysqldump with:
 
     [root@DC1-1 ~]# mysqldump -u root -p --master-data=2 --single-transaction -R -A -E > dump.sql
 
-You can compress the file if it is too large.  Copy the backup file to one node in each remote clusters, for example to DC2-1 and DC3-1.  Restore the dump with:
+You can compress the file if it is too large. You could alternatively use Percona Xtrabackup, especially if your dataset is large.  Copy the backup file to one node in each remote clusters, for example to DC2-1 and DC3-1.  Restore the dump with:
 
     [root@DC2-1 ~]# mysql -u root -p < dump.sql
     
@@ -198,7 +200,7 @@ For the other direction, we'll use DC1-1 for both:
 Now, we have all the clusters linked in a master to master way.  You can try some writes and look at the GTID_EXECUTED sequence on all nodes, it should be very similar with 3 UUID sequences, one per cluster.  It is time to pull in the *replication_manager.sh* script.  On each node, perform the following steps:
 
     # cd /usr/local/bin
-    # wget https://github.com/y-trudeau/Mysql-tools/raw/multi-source/PXC/replication_manager.sh
+    # wget https://github.com/y-trudeau/Mysql-tools/raw/master/PXC/replication_manager.sh
     # chmod u+x replication_manager.sh
 
 When executed for the first time, the replication manager will detect the current replication links and insert rows in the *percona.replication* table.  In order to avoid problems, we'll start by the nodes that are already slaves.  On these nodes (DC1-1, DC2-1 and DC3-1), execute the script manually once (remember you need the mysql credentials in /root/.my.cnf):

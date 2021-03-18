@@ -63,12 +63,13 @@ while true; do
     ) 200>/var/run/binlogstream_REPL_BINLOG_COMPRESS.lock &
   fi
 
+  # test if mysqlbinlog is running
   /bin/kill -0 `cat $pidfile`
-  if [ "$?" -eq "0" ]; then
-    #echo "running"
-    exit
-  else
-    #echo "not running"
+  if [ "$?" -ne "0" ]; then
+
+    # REPL_SOURCE could be queried here from a discovery service if available
+
+    #echo "mysqlbinlog not running"
     lastfile=`ls $REPL_BINLOG_PREFIX* | sort -n | tail -1`
     if [ -z "$lastfile" ]; then
       lastfile=`$mysqlclient -BN -u $REPL_USER --password=$REPL_PASSWORD --host=$REPL_SOURCE -e 'show master status;' 2> /dev/null | awk '{ print $1 }'`
@@ -85,8 +86,9 @@ while true; do
   fi
 
   if [ "$REPL_SLEEP_TIME" -gt 0]; then
-    break;
-  else
     sleep $REPL_SLEEP_TIME
+  else 
+    break;
   fi
+
 done

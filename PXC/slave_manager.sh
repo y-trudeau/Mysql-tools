@@ -59,8 +59,7 @@ MYSQL="`which mysql` --connect_timeout=10 -B"
 
 # retrieve the slave status and set variables
 get_slave_status() {
-	eval `$MYSQL -e "show slave status\G" 2> /tmp/mysql_error | grep -v Last \
-		| grep -v '\*\*\*\*' \| sed -e ':a' -e 'N' -e '$!ba' -e 's/,\n/, /g' \
+	eval `$MYSQL -e "show slave status\G" 2> /tmp/mysql_error | grep Slave_S \
 		| sed -e 's/^\s*//g' -e 's/: /=/g' -e 's/\(.*\)=\(.*\)$/\1='"'"'\2'"'"'/g'`
 
 	if [ "$(grep -c ERROR /tmp/mysql_error)" -gt 0 ]; then
@@ -82,9 +81,9 @@ is_replication_ok() {
 	get_slave_status
 	stateOk=$(echo $Slave_IO_State | grep -ci connect) # anything with connect in Slave_IO_State is bad
 	if [[ $Slave_IO_Running == "Yes" && $Slave_SQL_Running == "Yes" && $stateOk -eq 0 ]]; then
-		echo 1
-	else
 		echo 0
+	else
+		echo 1
 	fi
 }
 
@@ -100,7 +99,7 @@ setup_replication() {
 		
 		sleep 10  # Give some time for replication to settle
 		
-		if [ "$(is_replication_ok)" -eq 1 ]; then
+		if [ "$(is_replication_ok)" -eq 0 ]; then
 			send_email "Slave $hostname master is now $master" "New slave"  
 			masterOk=1
 			break

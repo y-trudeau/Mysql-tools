@@ -59,7 +59,7 @@ MYSQL="`which mysql` --connect_timeout=10 -B"
 
 # retrieve the slave status and set variables
 get_slave_status() {
-	eval `$MYSQL -e "show slave status\G" 2> /tmp/mysql_error | grep Slave_S \
+	eval `$MYSQL -e "show slave status\G" 2> /tmp/mysql_error | grep Slave_ \
 		| sed -e 's/^\s*//g' -e 's/: /=/g' -e 's/\(.*\)=\(.*\)$/\1='"'"'\2'"'"'/g'`
 
 	if [ "$(grep -c ERROR /tmp/mysql_error)" -gt 0 ]; then

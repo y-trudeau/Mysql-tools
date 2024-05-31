@@ -1,0 +1,1 @@
+MYSQL_ADD_PLUGIN(libsnowflakeId_udf snowflakeId_udf.cc MODULE_ONLY)

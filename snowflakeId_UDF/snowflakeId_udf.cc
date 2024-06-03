@@ -63,6 +63,7 @@ ulonglong snowflakeId(UDF_INIT *initid [[maybe_unused]], UDF_ARGS *args,
 
   gettimeofday(&now,NULL);
 
+  /* the sequence part is 12 bits, 4096 */
   s = sequence.fetch_add(1, std::memory_order_relaxed) % 4096;
 
   /* Current epoch in milliseconds */
@@ -74,6 +75,8 @@ ulonglong snowflakeId(UDF_INIT *initid [[maybe_unused]], UDF_ARGS *args,
   if (args->args[0] != NULL) {
     long long int_val;
     int_val = *((long long *)args->args[0]);
+
+    /* The machineID part is 10 bits, 1024 */
     genId = int_val % 1024;
   }
 

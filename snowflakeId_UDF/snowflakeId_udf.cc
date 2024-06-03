@@ -19,9 +19,9 @@
  * |      1796635423003381771 |
  * +--------------------------+
  *
- * Normally, a UDF function to use global variables. I opted to transgress
- * that rule using atomic function on the sequence. This should preserve the
- * thread safety.
+ * Normally, a UDF function in prohibited to use global variables. I opted to 
+ * transgress that rule using an atomic function on the sequence. This should 
+ * preserve the thread safety.
  *
  * Please do not copyright this code.  This code is in the public domain.
  *
@@ -46,8 +46,8 @@ ulonglong snowflakeId(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *err
 }
 
 bool snowflakeId_init(UDF_INIT *initid, UDF_ARGS *args, char *message) {
-  if (args->arg_count != 1) {
-    strcpy(message, "SNOWFLAKE requires one argument for the machineid, you could use @@server_id");
+  if (args->arg_count > 1) {
+    strcpy(message, "SNOWFLAKE requires at most one integer argument for the machineid, you can use @@server_id");
     return true;
   }
   initid->maybe_null = 0; /* The result will never be NULL */
@@ -63,7 +63,7 @@ ulonglong snowflakeId(UDF_INIT *initid [[maybe_unused]], UDF_ARGS *args,
 
   gettimeofday(&now,NULL);
 
-  /* the sequence part is 12 bits, 4096 */
+  /* The sequence part is 12 bits, 4096 values */
   s = sequence.fetch_add(1, std::memory_order_relaxed) % 4096;
 
   /* Current epoch in milliseconds */
@@ -72,12 +72,14 @@ ulonglong snowflakeId(UDF_INIT *initid [[maybe_unused]], UDF_ARGS *args,
   ts -= 1288834974657; 
 
   genId = 1;
-  if (args->args[0] != NULL) {
-    long long int_val;
-    int_val = *((long long *)args->args[0]);
+  if (args->arg_count == 1) {
+    if (args->args[0] != NULL) {
+      long long int_val;
+      int_val = *((long long *)args->args[0]);
 
-    /* The machineID part is 10 bits, 1024 */
-    genId = int_val % 1024;
+      /* The machineID part is 10 bits, 1024 values */
+      genId = int_val % 1024;
+    }
   }
 
   return ts*4*1024*1024 + genId*4*1024 + s;

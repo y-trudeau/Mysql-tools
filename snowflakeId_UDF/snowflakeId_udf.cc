@@ -69,6 +69,7 @@ ulonglong snowflakeId(UDF_INIT *initid [[maybe_unused]], UDF_ARGS *args,
   /* Current epoch in milliseconds */
   ts = (((now.tv_sec) * 1000 + now.tv_usec/1000.0) + 0.5);
   /* Shift offset to twitter epoch (see: https://en.wikipedia.org/wiki/Snowflake_ID) */
+  /* Feel free to adjust to what is suitable for your organization */
   ts -= 1288834974657; 
 
   genId = 1;
